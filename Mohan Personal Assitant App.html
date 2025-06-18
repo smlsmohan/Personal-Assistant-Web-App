@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mohan's Personal Assistant App</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        /* --- GLOBAL & UTILITY STYLES --- */
+        body {
+            background-color: #f8fafc; /* Default light mode background */
+        }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 14px 0 rgb(0 118 255 / 39%);
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* --- BUDGET TRACKER STYLES (Scoped to #budget-module) --- */
+        #budget-module {
+            --primary-color: #3b82f6;
+            --secondary-color: #8b5cf6;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --background: #f8fafc;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-primary);
+        }
+        #budget-module.dark-mode {
+            --background: #0f172a;
+            --card-background: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+        #budget-module .card {
+            background: var(--card-background);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        #budget-module .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+        #budget-module .btn {
+            background: linear-gradient(135deg, var(--primary-color), #2563eb);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        #budget-module .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+        #budget-module .form-input, #budget-module .form-select, #budget-module .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--card-background);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+         #budget-module .form-input:focus, #budget-module .form-select:focus, #budget-module .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        #budget-module .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 1rem 0;
+        }
+        #budget-module .income { color: var(--success-color); }
+        #budget-module .expense { color: var(--danger-color); }
+        #budget-module .balance { color: var(--primary-color); }
+        #budget-module .progress-bar {
+            width: 100%; height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden; margin: 1rem 0;
+        }
+        #budget-module .progress-fill {
+            height: 100%; background: linear-gradient(90deg, var(--success-color), #059669); border-radius: 4px; transition: width 1s ease-out;
+        }
+        #budget-module .transaction-item {
+            display: flex; justify-content: space-between; align-items: center; padding: 1rem;
+            border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 1rem; background: var(--card-background);
+        }
+        #budget-module .category-item { margin-bottom: 1rem; }
+        #budget-module .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        #budget-module .category-bar { flex: 1; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden; }
+        #budget-module .category-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
+        #budget-module .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-secondary); }
+
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <div class="min-h-screen">
+        <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800 mb-2">
+                    <i class="fas fa-user-astronaut text-blue-500"></i> Mohan's Personal Assistant
+                </h1>
+                <p class="text-lg text-gray-600">Your unified dashboard for productivity and finance.</p>
+            </header>
+
+            <nav class="mb-8 flex justify-center bg-white p-2 rounded-xl shadow-md">
+                <div id="main-nav" class="flex flex-wrap justify-center space-x-1 sm:space-x-2">
+                    <button onclick="App.navigate('dashboard')" class="tab-button active font-semibold px-4 py-2 rounded-lg"><i class="fas fa-tachometer-alt mr-2"></i>Dashboard</button>
+                    <button onclick="App.navigate('tasks')" class="tab-button font-semibold px-4 py-2 rounded-lg"><i class="fas fa-tasks mr-2"></i>Tasks</button>
+                    <button onclick="App.navigate('budget')" class="tab-button font-semibold px-4 py-2 rounded-lg"><i class="fas fa-wallet mr-2"></i>Budget</button>
+                    <button onclick="App.navigate('notes')" class="tab-button font-semibold px-4 py-2 rounded-lg"><i class="fas fa-book-open mr-2"></i>Notes</button>
+                    <button onclick="App.navigate('settings')" class="tab-button font-semibold px-4 py-2 rounded-lg"><i class="fas fa-cog mr-2"></i>Settings</button>
+                </div>
+            </nav>
+
+            <main id="app-content">
+                </main>
+        </div>
+    </div>
+
+    <!-- Note Modal (moved outside templates for better access) -->
+    <div id="note-modal" class="hidden modal-overlay">
+        <div class="modal-content">
+            <h2 id="note-modal-title" class="text-2xl font-bold mb-4">Add Note</h2>
+            <form id="note-form" class="space-y-4">
+                <input id="note-modal-id" type="hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input id="note-modal-title-input" type="text" placeholder="Note Title" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                    <textarea id="note-modal-content" placeholder="Start writing... Supports **bold** and *italic*." 
+                              class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                              rows="8"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                    <input id="note-modal-tags" type="text" placeholder="Tags (e.g., #project #idea)" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" onclick="App.notes.hideNoteModal()" 
+                            class="px-4 py-2 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="App.notes.saveNote()" 
+                            class="px-4 py-2 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600">
+                        Save Note
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="templates" class="hidden">
+
+        <div id="dashboard-template">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-lightbulb text-yellow-500 mr-2"></i>Smart Suggestions</h3>
+                        <div id="recommendation-area" class="space-y-3"></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-trophy text-purple-500 mr-2"></i>Gamification</h3>
+                        <div id="gamification-area" class="space-y-4"></div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-clipboard-list text-blue-500 mr-2"></i>Upcoming Tasks</h3>
+                        <div id="dashboard-tasks" class="space-y-3"></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-chart-pie text-green-500 mr-2"></i>Budget Overview</h3>
+                        <div id="dashboard-budget" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-sticky-note text-orange-500 mr-2"></i>Recent Notes</h3>
+                        <div id="dashboard-notes" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tasks-template">
+            <div class="fade-in">
+                <div id="task-stats" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"></div>
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-gray-800">📅 Complete Task Plan (61 Days)</h2>
+                    </div>
+                    <div id="task-plan" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="budget-template">
+             <div id="budget-module" class="fade-in">
+                <div id="budget-successMessage" class="hidden p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">✅ Transaction added successfully!</div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="card stat-card"><div class="card-header"><span>📈</span><h3>Total Income</h3></div><div id="totalIncome" class="stat-value income">€0.00</div><div id="incomeCount">0 transactions</div></div>
+                    <div class="card stat-card"><div class="card-header"><span>📉</span><h3>Total Expenses</h3></div><div id="totalExpenses" class="stat-value expense">€0.00</div><div id="expenseCount">0 transactions</div></div>
+                    <div class="card stat-card"><div class="card-header"><span>💰</span><h3>Current Balance</h3></div><div id="currentBalance" class="stat-value balance">€0.00</div><div id="savingsRate">0% savings rate</div></div>
+                    <div class="card stat-card"><div class="card-header"><span>🎯</span><h3>Monthly Budget</h3></div><div id="budgetRemaining" class="stat-value">€3,000.00</div><div class="progress-bar"><div id="budgetProgress" class="progress-fill"></div></div><div id="budgetUsed">0% used</div></div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card">
+                        <h3 class="text-xl font-bold mb-4">Add Transaction</h3>
+                        <div class="space-y-4">
+                            <div><label class="font-semibold block mb-1">Type</label><select id="budget-type" class="form-select" onchange="App.budget.updateCategoryOptions()"><option value="">Select...</option><option value="income">💰 Income</option><option value="expense">💸 Expense</option></select></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="font-semibold block mb-1">Amount (€)</label><input type="number" id="budget-amount" class="form-input" placeholder="0.00"></div>
+                                <div><label class="font-semibold block mb-1">Category</label><select id="budget-category" class="form-select"></select></div>
+                            </div>
+                            <div><label class="font-semibold block mb-1">Description</label><textarea id="budget-description" class="form-textarea" rows="2"></textarea></div>
+                            <button onclick="App.budget.addTransaction()" class="btn w-full justify-center">➕ Add Transaction</button>
+                        </div>
+                    </div>
+                     <div class="card">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold">Recent Transactions</h3>
+                            <button onclick="App.budget.clearAll()" class="text-red-500 hover:text-red-700 text-sm font-semibold">🗑️ Clear All</button>
+                        </div>
+                        <div id="transactionList" class="space-y-3 max-h-80 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <div class="card">
+                        <h3 class="text-xl font-bold mb-4">Income by Category</h3>
+                        <div id="incomeCategories"></div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-xl font-bold mb-4">Spending Insights</h3>
+                        <div id="spending-recommendation" class="mb-4 text-sm p-3 bg-blue-50 rounded-lg text-blue-800"></div>
+                        <div id="expenseCategories"></div>
+                    </div>
+                </div>
+             </div>
+        </div>
+
+        <div id="notes-template">
+            <div class="fade-in space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="font-bold text-xl mb-4">📝 Notes Management</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input id="note-search" type="text" placeholder="Search notes by content or #tag..." 
+                               class="md:col-span-3 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <button onclick="App.notes.showNoteModal()" 
+                                class="bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add New Note
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">My Notes</h2>
+                        <span id="notes-count" class="text-sm text-gray-500"></span>
+                    </div>
+                    <div id="notes-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="settings-template">
+            <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-lg fade-in space-y-8">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-database mr-2"></i>Data Management</h3>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button onclick="App.exportData()" class="flex-1 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">📥 Export All Data (JSON)</button>
+                        <label class="flex-1 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 cursor-pointer text-center">
+                            📤 Import Data <input type="file" accept=".json" onchange="App.importData(event)" class="hidden">
+                        </label>
+                    </div>
+                     <button onclick="App.shareSummary()" class="mt-4 w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600">📋 Copy Daily Summary</button>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-money-bill-wave mr-2"></i>Budget Settings</h3>
+                    <label class="block font-semibold mb-1">Monthly Budget Goal (€)</label>
+                    <input type="number" id="monthlyBudget" class="w-full p-2 border rounded-lg" onchange="App.budget.updateBudgetGoal(this.value)">
+                    <p class="text-sm text-gray-500 mt-1">Set your monthly spending limit.</p>
+                </div>
+                 <div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-warning mr-2"></i>Danger Zone</h3>
+                     <button onclick="App.resetData()" class="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">
+                        <i class="fas fa-trash-alt mr-2"></i>Reset All Application Data
+                    </button>
+                     <p class="text-sm text-gray-500 mt-1">Warning: This will delete all tasks, budgets, and notes permanently.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const App = {
+        // --- CORE PROPERTIES ---
+        state: {
+            currentPage: 'dashboard',
+            data: {}
+        },
+        
+        // --- INITIALIZATION ---
+        init() {
+            console.log("Initializing Mohan's Personal Assistant...");
+            this.loadData();
+            this.tasks.init();
+            this.budget.init();
+            this.notes.init();
+            this.navigate(this.state.currentPage, true);
+            console.log("App Initialized Successfully!");
+        },
+
+        // --- NAVIGATION ---
+        navigate(page, isInitialLoad = false) {
+            if (!isInitialLoad && this.state.currentPage === page) return;
+
+            this.state.currentPage = page;
+            const contentArea = document.getElementById('app-content');
+            
+            contentArea.innerHTML = ''; // Clear current content
+            const template = document.getElementById(`${page}-template`);
+            if (template) {
+                contentArea.appendChild(template.cloneNode(true).firstElementChild);
+            } else {
+                contentArea.innerHTML = `<p class="text-center text-red-500">Error: Page template for '${page}' not found.</p>`;
+                return;
+            }
+
+            document.querySelectorAll('#main-nav .tab-button').forEach(btn => btn.classList.remove('active'));
+            const activeButton = document.querySelector(`#main-nav button[onclick="App.navigate('${page}')"]`);
+            if(activeButton) activeButton.classList.add('active');
+            
+            this.renderPage();
+        },
+
+        renderPage() {
+            switch(this.state.currentPage) {
+                case 'dashboard': this.dashboard.render(); break;
+                case 'tasks': this.tasks.render(); break;
+                case 'budget': this.budget.render(); break;
+                case 'notes': 
+                    this.notes.render(); 
+                    // Set up search event listener after rendering
+                    setTimeout(() => {
+                        const noteSearchInput = document.getElementById('note-search');
+                        if (noteSearchInput) {
+                            noteSearchInput.addEventListener('input', () => this.notes.render());
+                        }
+                    }, 100);
+                    break;
+                case 'settings': this.settings.render(); break;
+            }
+        },
+
+        // --- DATA PERSISTENCE ---
+        loadData() {
+            const savedData = localStorage.getItem('mohanPersonalAssistantApp');
+            if (savedData) {
+                try {
+                    this.state.data = JSON.parse(savedData);
+                } catch (e) {
+                    console.error('Error parsing saved data:', e);
+                    this.state.data = {};
+                }
+                 // Ensure nested objects exist to prevent errors
+                if (!this.state.data.tasks) this.state.data.tasks = { plan: {}, completed: {} };
+                if (!this.state.data.tasks.completed) this.state.data.tasks.completed = {};
+                if (!this.state.data.budget) this.state.data.budget = { transactions: [], monthlyGoal: 3000 };
+                if (!this.state.data.notes) this.state.data.notes = [];
+                if (!this.state.data.gamification) this.state.data.gamification = { streak: 0, lastCompletionDate: null, points: 0, badges: [] };
+            } else {
+                this.state.data = {
+                    version: "1.2",
+                    tasks: { plan: {}, completed: {} },
+                    budget: { transactions: [], monthlyGoal: 3000 },
+                    notes: [],
+                    gamification: { streak: 0, lastCompletionDate: null, points: 0, badges: [] }
+                };
+            }
+            console.log('Data loaded:', this.state.data);
+        },
+
+        saveData() {
+            try {
+                localStorage.setItem('mohanPersonalAssistantApp', JSON.stringify(this.state.data));
+                console.log('Data saved successfully');
+            } catch (e) {
+                console.error('Error saving data:', e);
+                alert('Error saving data. Please try again.');
+            }
+        },
+        
+        resetData() {
+            if(confirm("ARE YOU SURE?\nThis will permanently delete all your data. This action cannot be undone.")) {
+                localStorage.removeItem('mohanPersonalAssistantApp');
+                window.location.reload(); // Easiest way to reset the state completely
+            }
+        },
+
+        // --- DATA I/O ---
+        exportData() {
+            const dataStr = JSON.stringify(this.state.data, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `mohan-pa-backup-${new Date().toISOString().split("T")[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+
+        importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.version && importedData.tasks && importedData.budget && importedData.notes) {
+                        this.state.data = importedData;
+                        this.saveData();
+                        window.location.reload(); // Reload to apply new data state consistently
+                        alert("Data imported successfully! The app will now reload.");
+                    } else { throw new Error("Invalid data structure."); }
+                } catch (error) {
+                    alert("Error importing data. The file might be corrupted or in the wrong format.");
+                }
+            };
+            reader.readAsText(file);
+        },
+
+        shareSummary() {
+            const today = new Date().toISOString().split('T')[0];
+            const tasks = this.state.data.tasks.plan[today]?.tasks || [];
+            const completedTasks = tasks.filter(t => this.state.data.tasks.completed[today]?.[t.topic]).length;
+            const budgetTotals = this.budget.calculateTotals();
+            const summaryText = `Mohan's Daily Summary:\n- Tasks: Completed ${completedTasks} of ${tasks.length} tasks today.\n- Budget Balance: ${this.budget.formatCurrency(budgetTotals.balance)}.\n- Productivity Streak: ${this.state.data.gamification.streak} days.`;
+            navigator.clipboard.writeText(summaryText).then(() => alert("Daily summary copied to clipboard!"), () => alert("Failed to copy summary."));
+        },
+        
+        // --- GAMIFICATION LOGIC ---
+        badgeMasterList: {
+            'First Step': { type: 'tasks', requirement: 1, description: 'Complete your first task.' },
+            'Task Novice': { type: 'tasks', requirement: 10, description: 'Complete 10 tasks.' },
+            'Productivity Pro': { type: 'tasks', requirement: 50, description: 'Complete 50 tasks.' },
+            'Streak Starter': { type: 'streak', requirement: 5, description: 'Achieve a 5-day streak.' },
+            'Weekly Warrior': { type: 'streak', requirement: 7, description: 'Achieve a 7-day streak.' },
+            'Point Collector': { type: 'points', requirement: 500, description: 'Earn 500 points.' },
+        },
+        
+        updateGamification(taskDate, isCompleted) {
+            const g = this.state.data.gamification;
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            if (isCompleted) {
+                g.points = (g.points || 0) + 10;
+                if (taskDate === todayStr) {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+                    if (g.lastCompletionDate === yesterdayStr) {
+                        g.streak++;
+                    } else if (g.lastCompletionDate !== todayStr) {
+                        g.streak = 1; // Start new streak
+                    }
+                    g.lastCompletionDate = todayStr;
+                }
+            } else {
+                 g.points = Math.max(0, (g.points || 0) - 10);
+            }
+            
+            // Check for new badges
+            const totalCompletedTasks = this.tasks.getProgressStats().completedTasks;
+            for (const [badgeName, details] of Object.entries(this.badgeMasterList)) {
+                if (!g.badges.includes(badgeName)) {
+                    let earned = false;
+                    if (details.type === 'tasks' && totalCompletedTasks >= details.requirement) earned = true;
+                    if (details.type === 'streak' && g.streak >= details.requirement) earned = true;
+                    if (details.type === 'points' && g.points >= details.requirement) earned = true;
+                    
+                    if (earned) {
+                        g.badges.push(badgeName);
+                        setTimeout(() => alert(`Badge Unlocked: ${badgeName}!`), 500);
+                    }
+                }
+            }
+            this.saveData();
+        },
+
+        // ===================================
+        // =========== MODULES ===============
+        // ===================================
+
+        dashboard: {
+            render() {
+                this.renderRecommendations();
+                this.renderGamification();
+                this.renderTaskSummary();
+                this.renderBudgetSummary();
+                this.renderNotesSummary();
+            },
+            renderRecommendations() {
+                const area = document.getElementById('recommendation-area');
+                if(!area) return;
+                const today = new Date().toISOString().split('T')[0];
+                const g = App.state.data.gamification;
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+                const incompleteTasks = (App.state.data.tasks.plan[today]?.tasks || []).filter(t => !App.state.data.tasks.completed[today]?.[t.topic]);
+                const budgetTotals = App.budget.calculateTotals();
+                const budgetUsedPercent = (budgetTotals.expenses / App.state.data.budget.monthlyGoal) * 100;
+                
+                let recommendations = [];
+
+                if (g.streak > 0 && g.lastCompletionDate === yesterdayStr) {
+                    recommendations.push(`<div class="p-3 bg-orange-50 rounded-lg text-orange-800"><i class="fas fa-fire mr-2"></i>Complete a task today to keep your <strong>${g.streak}-day streak</strong> alive!</div>`);
+                }
+                if (incompleteTasks.length > 0) {
+                    recommendations.push(`<div class="p-3 bg-blue-50 rounded-lg text-blue-800"><i class="fas fa-arrow-right mr-2"></i>You have <strong>${incompleteTasks.length} tasks</strong> left today. Let's tackle "${incompleteTasks[0].topic}"!</div>`);
+                }
+                if (budgetUsedPercent > 80) {
+                     recommendations.push(`<div class="p-3 bg-yellow-50 rounded-lg text-yellow-800"><i class="fas fa-exclamation-triangle mr-2"></i>You've used <strong>${budgetUsedPercent.toFixed(0)}%</strong> of your budget. Be mindful of spending.</div>`);
+                } else if (budgetTotals.expenses > 0) {
+                     recommendations.push(`<div class="p-3 bg-green-50 rounded-lg text-green-800"><i class="fas fa-thumbs-up mr-2"></i>Budgeting looks good! You're at <strong>${budgetUsedPercent.toFixed(0)}%</strong> of your monthly goal.</div>`);
+                }
+
+                if(recommendations.length === 0) {
+                    recommendations.push(`<div class="p-3 bg-gray-100 rounded-lg"><i class="fas fa-coffee mr-2"></i>All clear! A great day to plan ahead or relax.</div>`);
+                }
+
+                area.innerHTML = recommendations.join('');
+            },
+            renderGamification() {
+                const area = document.getElementById('gamification-area');
+                if(!area) return;
+                const g = App.state.data.gamification;
+                const earnedBadgesHtml = g.badges.map(b => `<span class="inline-block bg-purple-200 text-purple-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full" title="${App.badgeMasterList[b].description}">${b}</span>`).join('');
+                
+                const upcomingBadges = Object.entries(App.badgeMasterList)
+                    .filter(([name, details]) => !g.badges.includes(name))
+                    .slice(0, 2) // show next 2
+                    .map(([name, details]) => `<div class="text-sm text-gray-500"><i class="fas fa-lock mr-2"></i><strong>${name}</strong>: ${details.description}</div>`)
+                    .join('');
+
+                area.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-semibold text-gray-700">Daily Streak</span>
+                        <span class="text-2xl font-bold text-yellow-500"><i class="fas fa-fire"></i> ${g.streak}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="font-semibold text-gray-700">Total Points</span>
+                        <span class="text-2xl font-bold text-blue-500">${g.points}</span>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-700 mb-2">Earned Badges</h4>
+                        <div class="flex flex-wrap gap-2">${earnedBadgesHtml || '<p class="text-sm text-gray-500">None yet!</p>'}</div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t">
+                        <h4 class="font-semibold text-gray-700 mb-2">Upcoming Badges</h4>
+                        <div class="space-y-1">${upcomingBadges || '<p class="text-sm text-gray-500">You\'ve earned all badges!</p>'}</div>
+                    </div>
+                `;
+            },
+            renderTaskSummary() {
+                const container = document.getElementById('dashboard-tasks');
+                if(!container) return;
+                const today = new Date();
+                let upcomingTasks = [];
+                for(let i=0; i<7; i++) {
+                    const dateStr = new Date(today.getTime() + (i * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+                    if (App.state.data.tasks.plan[dateStr]) {
+                        const dailyTasks = (App.state.data.tasks.plan[dateStr].tasks || [])
+                            .filter(t => !App.state.data.tasks.completed[dateStr]?.[t.topic]);
+                        upcomingTasks.push(...dailyTasks.map(t => ({...t, date: dateStr})));
+                    }
+                    if(upcomingTasks.length >= 3) break;
+                }
+                container.innerHTML = upcomingTasks.length > 0 ? upcomingTasks.slice(0, 3).map(task => `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <span class="text-gray-800">${task.topic}</span>
+                        <span class="text-sm text-gray-500">${new Date(task.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', day: 'numeric'})}</span>
+                    </div>`).join('') : `<p class="text-gray-500">No upcoming tasks. You're all clear!</p>`;
+            },
+            renderBudgetSummary() {
+                const container = document.getElementById('dashboard-budget');
+                if(!container) return;
+                const totals = App.budget.calculateTotals();
+                container.innerHTML = `
+                    <div class="text-center p-2 rounded-lg bg-green-50"><p class="text-sm font-semibold text-green-800">Income</p><p class="text-xl font-bold text-green-600">${App.budget.formatCurrency(totals.income)}</p></div>
+                    <div class="text-center p-2 rounded-lg bg-red-50"><p class="text-sm font-semibold text-red-800">Expenses</p><p class="text-xl font-bold text-red-600">${App.budget.formatCurrency(totals.expenses)}</p></div>
+                    <div class="text-center p-2 rounded-lg bg-blue-50"><p class="text-sm font-semibold text-blue-800">Balance</p><p class="text-xl font-bold text-blue-600">${App.budget.formatCurrency(totals.balance)}</p></div>
+                `;
+            },
+            renderNotesSummary() {
+                const container = document.getElementById('dashboard-notes');
+                if(!container) return;
+                const recentNotes = [...App.state.data.notes].sort((a,b) => b.id - a.id).slice(0, 2);
+                container.innerHTML = recentNotes.length > 0 ? recentNotes.map(note => `
+                    <div class="p-2 bg-gray-50 rounded-lg"><p class="font-semibold truncate">${note.title}</p><p class="text-sm text-gray-600 truncate">${note.content}</p></div>`).join('') : `<p class="text-gray-500">No recent notes found.</p>`;
+            }
+        },
+
+        tasks: {
+            colorMap: { "Python & Pandas": "bg-green-500", "Git & GitHub": "bg-purple-500", "Machine Learning": "bg-red-500", "AI-900 Certification": "bg-yellow-500", "LeetCode & Review": "bg-gray-500" },
+            labelMap: { "🟩": "Python & Pandas", "🟪": "Git & GitHub", "🟥": "Machine Learning", "🟨": "AI-900 Certification", "⬜️": "LeetCode & Review" },
+            selectedDate: null,
+            init() {
+                if(Object.keys(App.state.data.tasks.plan).length === 0) {
+                   App.state.data.tasks.plan = this.generatePlan();
+                   App.saveData();
+                }
+            },
+            generatePlan() {
+                const plan = {};
+                const startDate = new Date('2025-06-01T00:00:00');
+                const endDate = new Date('2025-07-31T00:00:00');
+                const weeks = [
+                    { start: '2025-06-01', end: '2025-06-07', title: 'Week 1: Python Fundamentals & Git Setup' }, { start: '2025-06-08', end: '2025-06-14', title: 'Week 2: ML Project & AI-900 Intro' }, { start: '2025-06-15', end: '2025-06-21', title: 'Week 3: ML Project 2 & AI-900 Review' }, { start: '2025-06-22', end: '2025-06-28', title: 'Week 4: Portfolio Polish & Advanced Topics' }, { start: '2025-06-29', end: '2025-07-05', title: 'Week 5: Application Kick-off & Adv. ML Topics' }, { start: '2025-07-06', end: '2025-07-12', title: 'Week 6: Deep Learning Introduction' }, { start: '2025-07-13', end: '2025-07-19', title: 'Week 7: Specialization & Interview Prep' }, { start: '2025-07-20', end: '2025-07-26', title: 'Week 8: Final Projects & Applications' }, { start: '2025-07-27', end: '2025-07-31', title: 'Week 9: Success & Career Launch' }
+                ];
+                const taskTemplates = {
+                    'Python & Pandas': ['Python fundamentals', 'Pandas data manipulation', 'Advanced Python'], 'Git & GitHub': ['Git basics', 'GitHub collaboration', 'Advanced Git workflows'], 'Machine Learning': ['ML algorithms', 'Feature engineering', 'Model evaluation'], 'AI-900 Certification': ['Azure AI fundamentals', 'AI workloads', 'Practice tests'], 'LeetCode & Review': ['Coding practice', 'Algorithm review', 'Portfolio development']
+                };
+                let currentDate = new Date(startDate);
+                while (currentDate <= endDate) {
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+                    const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+                    const isCollegeOff = isWeekend || currentDate.getMonth() === 5; // June is month 5
+                    const currentWeek = weeks.find(w => dateStr >= w.start && dateStr <= w.end) || weeks[weeks.length - 1];
+                    const tasks = [];
+                    const hours = isCollegeOff ? 10 : 5;
+                    const taskTypes = ['🟩', '🟪', '🟥', '🟨', '⬜️'];
+                    for (let i = 0; i < (isCollegeOff ? 6 : 3); i++) {
+                        const taskType = taskTypes[i % taskTypes.length];
+                        const category = this.labelMap[taskType];
+                        const topic = taskTemplates[category][Math.floor(Math.random() * taskTemplates[category].length)];
+                        tasks.push({ time: `${7 + i}:00-${8 + i}:00`, topic, type: taskType, duration: 1, completed: false });
+                    }
+                    plan[dateStr] = { day: dayName, type: isCollegeOff ? 'College Off' : 'College On', hours, week: currentWeek.title, tasks };
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                return plan;
+            },
+            getProgressStats() {
+                let totalTasks = 0, completedTasks = 0;
+                Object.keys(App.state.data.tasks.plan).forEach(date => {
+                    const tasks = App.state.data.tasks.plan[date]?.tasks || [];
+                    totalTasks += tasks.length;
+                    tasks.forEach(task => {
+                        if (App.state.data.tasks.completed[date]?.[task.topic]) completedTasks++;
+                    });
+                });
+                return { totalTasks, completedTasks, taskProgress: totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0 };
+            },
+            toggleTask(date, topic) {
+                if (!App.state.data.tasks.completed[date]) App.state.data.tasks.completed[date] = {};
+                const isCompleted = !App.state.data.tasks.completed[date][topic];
+                App.state.data.tasks.completed[date][topic] = isCompleted;
+                App.updateGamification(date, isCompleted);
+                App.saveData();
+                this.render();
+                if(App.state.currentPage === 'dashboard') App.dashboard.render();
+            },
+            toggleDate(date) {
+                this.selectedDate = this.selectedDate === date ? null : date;
+                this.render();
+            },
+            render() {
+                const stats = this.getProgressStats();
+                document.getElementById('task-stats').innerHTML = `
+                    <div class="bg-white rounded-lg shadow p-6 text-center"><h3 class="font-semibold text-gray-700">Task Progress</h3><p class="text-3xl font-bold text-blue-600">${stats.completedTasks}/${stats.totalTasks}</p></div>
+                    <div class="bg-white rounded-lg shadow p-6 text-center"><h3 class="font-semibold text-gray-700">Completion</h3><p class="text-3xl font-bold text-green-600">${stats.taskProgress.toFixed(1)}%</p></div>
+                    <div class="bg-white rounded-lg shadow p-6 text-center"><h3 class="font-semibold text-gray-700">Daily Streak</h3><p class="text-3xl font-bold text-yellow-500">${App.state.data.gamification.streak} Days</p></div>
+                    <div class="bg-white rounded-lg shadow p-6"><h3 class="font-semibold text-gray-700 mb-2">Focus Areas</h3><div class="space-y-2">${Object.entries(this.labelMap).map(([e,l]) => `<div class="flex items-center"><span class="w-3 h-3 rounded-full ${this.colorMap[l]} mr-2"></span><span class="text-xs">${l}</span></div>`).join('')}</div></div>`;
+
+                document.getElementById('task-plan').innerHTML = Object.entries(App.state.data.tasks.plan).map(([date, data]) => {
+                    const completedCount = (data.tasks || []).filter(t => App.state.data.tasks.completed[date]?.[t.topic]).length;
+                    const totalCount = (data.tasks || []).length;
+                    const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+                    const borderColor = progress === 100 ? "border-green-500" : progress > 50 ? "border-yellow-500" : "border-gray-300";
+                    let tasksHtml = '';
+                    if (this.selectedDate === date) {
+                        tasksHtml = `<div class="mt-4 space-y-3">` + (data.tasks || []).map(task => {
+                            const isCompleted = App.state.data.tasks.completed[date]?.[task.topic];
+                            return `<div class="flex items-center p-2 rounded-lg bg-gray-50"><button onclick="event.stopPropagation(); App.tasks.toggleTask('${date}', '${task.topic}')">${isCompleted ? '✅' : '⭕'}</button><div class="ml-3"><div class="flex items-center space-x-2"><span class="w-3 h-3 rounded-full ${this.colorMap[this.labelMap[task.type]]}"></span><p class="text-sm ${isCompleted ? 'line-through text-gray-500' : ''}">${task.topic}</p></div></div></div>`;
+                        }).join('') + `</div>`;
+                    }
+                    return `<div class="bg-white rounded-lg shadow p-4 border-l-4 ${borderColor} cursor-pointer hover:shadow-xl" onclick="App.tasks.toggleDate('${date}')">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div><h3 class="font-bold text-lg">${new Date(date+'T00:00:00').toLocaleDateString('en-GB')}</h3><p class="text-xs text-gray-600 mt-1">${data.week}</p></div>
+                                    <div class="flex items-center space-x-2"><span class="text-sm font-medium">${data.day}</span><div class="px-2 py-1 rounded-full text-xs ${data.type === 'College Off' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${data.hours}h</div></div>
+                                </div>
+                                <div class="mb-3"><div class="flex justify-between text-sm mb-1"><span>Progress</span><span>${completedCount}/${totalCount} tasks</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full" style="width: ${progress}%"></div></div></div>
+                                ${tasksHtml}
+                            </div>`;
+                }).join('');
+            }
+        },
+        
+        budget: {
+            categories: { income: ['💼 Salary', '💻 Freelance', '📈 Investment', '🎁 Gift', '💰 Other'], expense: ['🍽️ Food & Dining', '🛍️ Shopping', '🚗 Transportation', '⚡ Bills & Utilities', '🎬 Entertainment', '🏥 Healthcare', '✈️ Travel', '📚 Education', '💸 Other'] },
+            colors: { income: ['#10b981', '#059669', '#047857', '#065f46', '#064e3b'], expense: ['#ef4444', '#dc2626', '#b91c1c', '#991b1b', '#7f1d1d'] },
+            init() {},
+            addTransaction() {
+                const type = document.getElementById('budget-type').value; 
+                const amount = parseFloat(document.getElementById('budget-amount').value); 
+                const category = document.getElementById('budget-category').value; 
+                const description = document.getElementById('budget-description').value;
+                
+                if (!type || !amount || !category || !description) { 
+                    alert('Please fill all fields.'); 
+                    return; 
+                }
+                
+                App.state.data.budget.transactions.unshift({ 
+                    id: Date.now(), 
+                    type, 
+                    amount, 
+                    category, 
+                    description, 
+                    date: new Date().toISOString().split('T')[0] 
+                });
+                
+                // Clear form
+                document.getElementById('budget-type').value = '';
+                document.getElementById('budget-amount').value = '';
+                document.getElementById('budget-category').value = '';
+                document.getElementById('budget-description').value = '';
+                
+                App.saveData(); 
+                this.render(); 
+                if (App.state.currentPage === 'dashboard') App.dashboard.render();
+                
+                const successMsg = document.getElementById('budget-successMessage'); 
+                if(successMsg) { 
+                    successMsg.classList.remove('hidden'); 
+                    setTimeout(() => successMsg.classList.add('hidden'), 3000); 
+                }
+            },
+            clearAll() { 
+                if (confirm('Clear all transactions?')) { 
+                    App.state.data.budget.transactions = []; 
+                    App.saveData(); 
+                    this.render(); 
+                    if (App.state.currentPage === 'dashboard') App.dashboard.render(); 
+                } 
+            },
+            calculateTotals() { 
+                const income = App.state.data.budget.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0); 
+                const expenses = App.state.data.budget.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0); 
+                return { income, expenses, balance: income - expenses }; 
+            },
+            getCategoryData(type) { 
+                const filtered = App.state.data.budget.transactions.filter(t=>t.type===type); 
+                const total = filtered.reduce((s,t)=>s+t.amount,0); 
+                const grouped = {}; 
+                filtered.forEach(t=>{grouped[t.category]=(grouped[t.category]||0)+t.amount}); 
+                return Object.entries(grouped).map(([cat,amt])=>({
+                    category:cat,
+                    amount:amt,
+                    percentage:total>0?(amt/total)*100:0
+                })).sort((a,b)=>b.amount-a.amount); 
+            },
+            updateBudgetGoal(value) { 
+                App.state.data.budget.monthlyGoal=parseFloat(value)||3000; 
+                App.saveData(); 
+                this.render(); 
+            },
+            updateCategoryOptions() { 
+                const type=document.getElementById('budget-type').value; 
+                const categorySelect = document.getElementById('budget-category');
+                categorySelect.innerHTML = '<option value="">Select category...</option>' + 
+                    (this.categories[type]?.map(c=>`<option value="${c}">${c}</option>`).join('')||''); 
+            },
+            formatCurrency(amount) { 
+                return new Intl.NumberFormat('en-IE',{style:'currency',currency:'EUR'}).format(amount); 
+            },
+            render() {
+                const totals=this.calculateTotals(); 
+                const goal=App.state.data.budget.monthlyGoal; 
+                const budgetUsedPercent=goal>0?(totals.expenses/goal)*100:0;
+                
+                document.getElementById('totalIncome').textContent=this.formatCurrency(totals.income); 
+                document.getElementById('totalExpenses').textContent=this.formatCurrency(totals.expenses); 
+                document.getElementById('currentBalance').textContent=this.formatCurrency(totals.balance); 
+                document.getElementById('budgetRemaining').textContent=this.formatCurrency(goal-totals.expenses); 
+                document.getElementById('budgetProgress').style.width=`${Math.min(budgetUsedPercent,100)}%`; 
+                document.getElementById('budgetUsed').textContent=`${budgetUsedPercent.toFixed(1)}% used`;
+                
+                document.getElementById('transactionList').innerHTML=App.state.data.budget.transactions.slice(0,10).map(t=>`
+                    <div class="transaction-item">
+                        <div>
+                            <p class="font-bold">${t.description}</p>
+                            <p class="text-sm text-gray-500">${t.category}</p>
+                        </div>
+                        <p class="font-bold ${t.type==='income'?'text-green-600':'text-red-600'}">
+                            ${t.type==='income'?'+':'-'}${this.formatCurrency(t.amount)}
+                        </p>
+                    </div>
+                `).join('')||`<div class="empty-state">No transactions yet.</div>`;
+                
+                const renderCatView=(id,type)=>{
+                    const container=document.getElementById(id);
+                    const data=this.getCategoryData(type);
+                    if(data.length===0){
+                        container.innerHTML=`<div class="empty-state">No ${type} data.</div>`;
+                        return;
+                    } 
+                    container.innerHTML=data.map((item,idx)=>`
+                        <div class="category-item">
+                            <div class="category-header">
+                                <span class="font-semibold">${item.category}</span>
+                                <span>${this.formatCurrency(item.amount)}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="category-bar">
+                                    <div class="category-fill" style="width:${item.percentage}%;background:${this.colors[type][idx%this.colors[type].length]}"></div>
+                                </div>
+                                <span class="text-xs text-gray-500">${item.percentage.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    `).join('');
+                };
+                
+                renderCatView('incomeCategories','income'); 
+                renderCatView('expenseCategories','expense');
+                
+                const recEl=document.getElementById('spending-recommendation');
+                if(recEl){
+                    const expenseData=this.getCategoryData('expense');
+                    recEl.innerHTML=expenseData.length>0&&expenseData[0].percentage>40?
+                        `💡 Your highest spending is in <strong>${expenseData[0].category}</strong>. Consider reviewing.`:
+                        `💡 Your spending is well-distributed. Keep it up!`;
+                }
+            }
+        },
+        
+        notes: {
+            init() {
+                console.log('Notes module initializing...');
+                // Ensure notes array exists
+                if (!App.state.data.notes) {
+                    App.state.data.notes = [];
+                    console.log('Created empty notes array');
+                }
+                console.log('Notes initialized with', App.state.data.notes.length, 'notes');
+            },
+            
+            showNoteModal(noteId = null) {
+                console.log('showNoteModal called with noteId:', noteId);
+                
+                const modal = document.getElementById('note-modal'); 
+                const title = document.getElementById('note-modal-title'); 
+                const idInput = document.getElementById('note-modal-id'); 
+                const titleInput = document.getElementById('note-modal-title-input'); 
+                const contentInput = document.getElementById('note-modal-content'); 
+                const tagsInput = document.getElementById('note-modal-tags');
+                
+                if (!modal) {
+                    console.error('Modal not found!');
+                    alert('Error: Modal not found. Please refresh the page.');
+                    return;
+                }
+                
+                if(noteId) {
+                    const note = App.state.data.notes.find(n => n.id === noteId);
+                    if(note){ 
+                        title.textContent = "Edit Note"; 
+                        idInput.value = note.id; 
+                        titleInput.value = note.title; 
+                        contentInput.value = note.content; 
+                        tagsInput.value = note.tags.join(' '); 
+                    }
+                } else {
+                    title.textContent = "Add New Note"; 
+                    idInput.value = ''; 
+                    titleInput.value = ''; 
+                    contentInput.value = ''; 
+                    tagsInput.value = '';
+                }
+                
+                modal.classList.remove('hidden');
+                console.log('Modal should now be visible');
+                
+                // Focus on title input
+                setTimeout(() => {
+                    if (titleInput) {
+                        titleInput.focus();
+                    }
+                }, 100);
+            },
+            
+            hideNoteModal() { 
+                console.log('hideNoteModal called');
+                const modal = document.getElementById('note-modal');
+                if (modal) {
+                    modal.classList.add('hidden'); 
+                }
+            },
+            
+            saveNote() {
+                console.log('saveNote called');
+                
+                const id = document.getElementById('note-modal-id').value;
+                const title = document.getElementById('note-modal-title-input').value.trim();
+                const content = document.getElementById('note-modal-content').value.trim();
+                const tagsInput = document.getElementById('note-modal-tags').value.trim();
+                const tags = tagsInput ? tagsInput.split(' ').filter(t => t.startsWith('#') && t.length > 1) : [];
+                
+                console.log('Form data:', { id, title, content, tags });
+                
+                if (!title || !content) { 
+                    alert("Title and content cannot be empty."); 
+                    return; 
+                }
+
+                if(id) {
+                    // Edit existing note
+                    const noteIndex = App.state.data.notes.findIndex(n => n.id == id);
+                    if(noteIndex > -1) {
+                        App.state.data.notes[noteIndex] = { 
+                            ...App.state.data.notes[noteIndex], 
+                            title, 
+                            content, 
+                            tags,
+                            updatedAt: new Date().toISOString()
+                        };
+                        console.log('Updated existing note');
+                    }
+                } else {
+                    // Add new note
+                    const newNote = { 
+                        id: Date.now(), 
+                        title, 
+                        content, 
+                        tags,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    App.state.data.notes.push(newNote);
+                    console.log('Added new note:', newNote);
+                }
+                
+                App.saveData(); 
+                this.render(); 
+                if (App.state.currentPage === 'dashboard') App.dashboard.render(); 
+                this.hideNoteModal();
+                
+                console.log('Note saved successfully. Total notes:', App.state.data.notes.length);
+            },
+            
+            deleteNote(noteId) {
+                if(confirm("Delete this note? This action cannot be undone.")) {
+                    App.state.data.notes = App.state.data.notes.filter(n => n.id !== noteId);
+                    App.saveData(); 
+                    this.render(); 
+                    if (App.state.currentPage === 'dashboard') App.dashboard.render();
+                    console.log('Note deleted. Remaining notes:', App.state.data.notes.length);
+                }
+            },
+            
+            parseMarkdown(text) { 
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n/g, '<br>'); 
+            },
+            
+            render() {
+                console.log('Notes render called');
+                
+                const container = document.getElementById('notes-list');
+                const countElement = document.getElementById('notes-count');
+                
+                if (!container) {
+                    console.error('Notes container not found');
+                    return;
+                }
+                
+                const searchInput = document.getElementById('note-search');
+                const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                
+                if (!App.state.data.notes) {
+                    App.state.data.notes = [];
+                }
+                
+                console.log('Rendering', App.state.data.notes.length, 'notes with search term:', searchTerm);
+                
+                const filteredNotes = App.state.data.notes.filter(note => 
+                    note.title.toLowerCase().includes(searchTerm) || 
+                    note.content.toLowerCase().includes(searchTerm) ||
+                    note.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+                );
+                
+                // Update count
+                if (countElement) {
+                    countElement.textContent = `${filteredNotes.length} of ${App.state.data.notes.length} notes`;
+                }
+                
+                if (filteredNotes.length === 0) {
+                    container.innerHTML = `
+                        <div class="md:col-span-3 text-center py-12">
+                            <i class="fas fa-sticky-note text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500 text-lg">
+                                ${searchTerm ? 'No notes found matching your search.' : 'No notes yet. Click "Add New Note" to get started!'}
+                            </p>
+                            ${!searchTerm ? `
+                                <button onclick="App.notes.showNoteModal()" 
+                                        class="mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">
+                                    <i class="fas fa-plus mr-2"></i>Create Your First Note
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = filteredNotes
+                    .sort((a,b) => b.id - a.id)
+                    .map(note => {
+                        const relatedNotes = App.state.data.notes.filter(other => 
+                            other.id !== note.id && 
+                            note.tags.some(tag => other.tags.includes(tag))
+                        ).slice(0, 2);
+                        
+                        const relatedHtml = relatedNotes.length > 0 ? `
+                            <div class="mt-3 pt-2 border-t">
+                                <h5 class="text-xs font-bold text-gray-500 mb-1">Related:</h5>
+                                ${relatedNotes.map(r => `
+                                    <p class="text-xs text-blue-600 truncate cursor-pointer hover:underline" 
+                                       onclick="App.notes.showNoteModal(${r.id})">${r.title}</p>
+                                `).join('')}
+                            </div>
+                        ` : '';
+                        
+                        return `
+                            <div class="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow space-y-2">
+                                <div class="flex justify-between items-start">
+                                    <h4 class="font-bold text-lg text-gray-800 truncate pr-2">${note.title}</h4>
+                                    <div class="flex space-x-2 flex-shrink-0">
+                                        <button onclick="App.notes.showNoteModal(${note.id})" 
+                                                class="text-gray-400 hover:text-blue-500 transition-colors" 
+                                                title="Edit note">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="App.notes.deleteNote(${note.id})" 
+                                                class="text-gray-400 hover:text-red-500 transition-colors" 
+                                                title="Delete note">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-gray-700 text-sm max-h-24 overflow-y-auto">
+                                    ${this.parseMarkdown(note.content)}
+                                </div>
+                                ${note.tags.length > 0 ? `
+                                    <div class="flex flex-wrap gap-1">
+                                        ${note.tags.map(tag => `
+                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                                ${tag}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                                ${relatedHtml}
+                                <div class="text-xs text-gray-400 mt-2">
+                                    ${note.updatedAt ? 
+                                        `Updated: ${new Date(note.updatedAt).toLocaleDateString()}` : 
+                                        `Created: ${new Date(note.createdAt || note.id).toLocaleDateString()}`
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                console.log('Notes rendered successfully');
+            }
+        },
+
+        settings: { 
+            render() { 
+                const monthlyBudgetInput = document.getElementById('monthlyBudget');
+                if (monthlyBudgetInput) {
+                    monthlyBudgetInput.value = App.state.data.budget.monthlyGoal; 
+                }
+            } 
+        }
+    };
+
+    // Initialize app when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM loaded, initializing app...');
+        App.init();
+    });
+    
+    // Add some debugging
+    window.App = App; // Make App available in console for debugging
+    </script>
+</body>
+</html>
